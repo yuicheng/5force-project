@@ -10,13 +10,29 @@ async function step1_cleanDatabase() {
     console.log('\n=== 步骤1: 清理数据库 ===');
     console.log('正在清理现有数据...');
     
-    // 按依赖关系顺序删除数据
-    await prisma.portfolio_History.deleteMany({});
+    // 按依赖关系顺序删除数据 (从最依赖的表到最独立的表)
+    console.log('正在删除 Asset_History...');
+    await prisma.asset_History.deleteMany({});
+    
+    console.log('正在删除 Transaction...');
     await prisma.transaction.deleteMany({});
+    
+    console.log('正在删除 Holding...');
     await prisma.holding.deleteMany({});
+    
+    console.log('正在删除 Portfolio_History...');
+    await prisma.portfolio_History.deleteMany({});
+    
+    console.log('正在删除 Asset...');
     await prisma.asset.deleteMany({});
+    
+    console.log('正在删除 Account...');
     await prisma.account.deleteMany({});
+    
+    console.log('正在删除 Portfolio...');
     await prisma.portfolio.deleteMany({});
+    
+    console.log('正在删除 User...');
     await prisma.user.deleteMany({});
     
     console.log('✅ 数据清理完成');
@@ -117,16 +133,33 @@ async function step3_populateAssetsFromSQLite() {
             }
           }
 
-          // 为每个资产生成随机价格和涨跌幅
-          const randomPrice = (Math.random() * 500 + 50).toFixed(2); // 50-550之间的随机价格
-          const randomChange = (Math.random() * 10 - 5).toFixed(2); // -5%到+5%的随机涨跌幅
+          // 使用Asset_History最近一条的close_price作为当前价格，涨跌幅设为0
+          // 查询Asset_History表获取最近一条close_price
+          let latestPrice = null;
+          try {
+            const priceRow = await new Promise((resolve, reject) => {
+              db.get(
+                `SELECT close_price, date FROM PriceHistory WHERE asset_id = ? ORDER BY date DESC LIMIT 1`,
+                [row.asset_id],
+                (err, result) => {
+                  if (err) reject(err);
+                  else resolve(result);
+                }
+              );
+            });
+            if (priceRow && priceRow.close_price != null) {
+              latestPrice = priceRow.close_price;
+            }
+          } catch (e) {
+            console.warn(`⚠️ 查询资产${row.ticker_symbol}的最新价格失败:`, e.message);
+          }
 
           const assetData = {
             ticker_symbol: row.ticker_symbol,
             name: row.name,
             asset_type: assetType,
-            current_price: randomPrice,
-            percent_change_today: randomChange,
+            current_price: latestPrice !== null ? latestPrice : 0,
+            percent_change_today: 0,
             price_updated_at: timestamp,
             lastUpdated: timestamp,
             currency: row.currency || 'USD',
@@ -193,10 +226,10 @@ async function step3_populateAssetsFromSQLite() {
                   data: {
                     asset_id: prismaAssetId,
                     date: new Date(historyRow.date),
-                    open_price: parseFloat(historyRow.open_price),
-                    high_price: parseFloat(historyRow.high_price),
-                    low_price: parseFloat(historyRow.low_price),
-                    close_price: parseFloat(historyRow.close_price),
+                    open_price: parseFloat(historyRow.open_price).toFixed(2),
+                    high_price: parseFloat(historyRow.high_price).toFixed(2),
+                    low_price: parseFloat(historyRow.low_price).toFixed(2),
+                    close_price: parseFloat(historyRow.close_price).toFixed(2),
                     volume: parseInt(historyRow.volume),
                   },
                 });
@@ -326,42 +359,73 @@ async function step5_createPortfolioHistory(portfolio) {
     console.log('\n=== 步骤5: 创建投资组合历史记录 ===');
     
     const historyRecords = [];
-    let currentNetWorth = 500000.00; // 起始净值
     const today = new Date();
-    
-    console.log('正在生成30天历史记录...');
-    
-    // 生成30天的历史记录，从30天前开始到今天
-    for (let i = 29; i >= 0; i--) {
-      const snapshotDate = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
-      
-      // 如果不是第一天，计算相对于前一天的随机涨跌幅 (-3% 到 +5%)
-      if (i < 29) {
-        const changePercent = (Math.random() * 8 - 3) / 100; // -3% 到 +5%
-        currentNetWorth = currentNetWorth * (1 + changePercent);
-      }
-      
-      // 简单假设现金价值为净值的10%-30%，其余为投资价值
-      const cashRatio = 0.1 + Math.random() * 0.2; // 10%-30%
-      const cashValue = currentNetWorth * cashRatio;
-      const investmentValue = currentNetWorth - cashValue;
-      
+
+    // 先获取当前投资组合的总净值、现金、投资值，作为第30天（今天）的记录
+    // 这里假设投资组合的当前净值、现金、投资值为最新一笔
+    // 如果没有portfolio.current_net_worth等字段，则用默认值
+    let currentNetWorth = typeof portfolio.current_net_worth === 'number' ? portfolio.current_net_worth : 500000.00;
+    let currentCash = typeof portfolio.current_cash === 'number' ? portfolio.current_cash : 100000.00;
+    let currentInvestment = typeof portfolio.current_investment === 'number' ? portfolio.current_investment : (currentNetWorth - currentCash);
+
+    // 记录每天的净值、现金、投资值
+    // 先倒序生成数组（第30天到第1天），再正序写入
+    const days = 30;
+    const netWorthArr = [];
+    const cashArr = [];
+    const investmentArr = [];
+    const dateArr = [];
+
+    // 第30天（今天）的数据
+    netWorthArr[days - 1] = currentNetWorth;
+    cashArr[days - 1] = currentCash;
+    investmentArr[days - 1] = currentInvestment;
+    dateArr[days - 1] = new Date(today.getTime());
+
+    // 倒推前29天
+    for (let i = days - 2; i >= 0; i--) {
+      // 现金不变
+      cashArr[i] = currentCash;
+
+      // 投资部分浮动，-3%~+5%
+      const changePercent = (Math.random() * 8 - 3) / 100; // -3%~+5%
+      // 上一天的投资部分
+      const nextInvestment = investmentArr[i + 1];
+      // 上一天的净值
+      const nextNetWorth = netWorthArr[i + 1];
+
+      // 前一天的投资部分 = 后一天的投资部分 / (1 + changePercent)
+      // 但我们要倒推：前一天的投资部分 = nextInvestment / (1 + changePercent)
+      // 现金不变
+      const prevInvestment = nextInvestment / (1 + changePercent);
+
+      // 前一天的净值 = 现金 + 前一天的投资部分
+      const prevNetWorth = cashArr[i] + prevInvestment;
+
+      investmentArr[i] = prevInvestment;
+      netWorthArr[i] = prevNetWorth;
+
+      // 日期
+      dateArr[i] = new Date(today.getTime() - (days - 1 - i) * 24 * 60 * 60 * 1000);
+    }
+
+    // 现在正序写入数据库（第1天到第30天）
+    for (let i = 0; i < days; i++) {
       const record = await prisma.portfolio_History.create({
         data: {
-          snapshot_date: snapshotDate,
-          net_worth: Math.round(currentNetWorth * 100) / 100, // 保留两位小数
-          cash_value: Math.round(cashValue * 100) / 100,
-          investment_value: Math.round(investmentValue * 100) / 100,
+          snapshot_date: dateArr[i],
+          net_worth: Math.round(netWorthArr[i] * 100) / 100,
+          cash_value: Math.round(cashArr[i] * 100) / 100,
+          investment_value: Math.round(investmentArr[i] * 100) / 100,
           portfolioId: portfolio.id,
         },
       });
-      
       historyRecords.push(record);
     }
-    
+
     console.log(`✅ 投资组合历史记录创建成功: ${historyRecords.length} 条记录`);
-    console.log(`📈 净值变化: $${500000.00.toFixed(2)} → $${currentNetWorth.toFixed(2)}`);
-    
+    console.log(`📈 净值变化: $${netWorthArr[0].toFixed(2)} → $${netWorthArr[days - 1].toFixed(2)}`);
+
     return historyRecords;
   } catch (error) {
     console.error('❌ 创建投资组合历史记录失败:', error.message);
@@ -416,9 +480,8 @@ async function main() {
     console.log(`- 投资组合历史记录: ${historyRecords.length}条`);
     
     console.log('\n👤 测试用户信息:');
-    console.log('- 用户名: testuser');
-    console.log('- 邮箱: test@example.com');
-    console.log('- 密码哈希: $2b$10$dummy.hash.for.testing.purposes.only');
+    console.log('- 用户名: 5force');
+    console.log('- 密码哈希: $DUMMY_HASH);
 
   } catch (error) {
     console.error('\n❌ 数据库填充失败:', error);

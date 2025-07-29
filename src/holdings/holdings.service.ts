@@ -37,6 +37,11 @@ export interface SellByTickerDto {
   accountId?: number; // 可选，不提供则使用用户的默认账户
 }
 
+export interface SellAllByTickerDto {
+  username: string;
+  ticker: string;
+}
+
 @Injectable()
 export class HoldingsService {
   private readonly logger = new Logger(HoldingsService.name);
@@ -469,12 +474,116 @@ export class HoldingsService {
   }
 
   /**
-   * 批量卖出持仓
+   * 卖出用户在某个股票上的全部持仓 (简化版本，只需要用户名和股票代码)
+   */
+  async sellAllByTicker(sellAllDto: SellAllByTickerDto) {
+    const { username, ticker } = sellAllDto;
+
+    // 查找用户和投资组合
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+      include: {
+        portfolio: {
+          include: {
+            accounts: {
+              include: {
+                holdings: {
+                  include: {
+                    asset: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user?.portfolio) {
+      throw new NotFoundException(`Portfolio not found for user: ${username}`);
+    }
+
+    // 使用默认账户（第一个账户）
+    const account = user.portfolio.accounts[0];
+    if (!account) {
+      throw new BadRequestException('No account found for user');
+    }
+
+    // 查找该股票的持仓
+    const holding = account.holdings.find(h => 
+      h.asset.ticker_symbol?.toLowerCase() === ticker.toLowerCase()
+    );
+
+    if (!holding) {
+      throw new NotFoundException(`No holding found for ticker: ${ticker}`);
+    }
+
+    if (Number(holding.quantity) <= 0) {
+      throw new BadRequestException(`No shares to sell for ticker: ${ticker}`);
+    }
+
+    // 获取市场价格
+    let sellPrice: number;
+    try {
+      const marketData = await this.marketDataService.getAssetData(ticker);
+      sellPrice = marketData.currentPrice;
+    } catch (error) {
+      // 如果无法获取市场价格，使用资产的当前价格
+      if (holding.asset.current_price) {
+        sellPrice = Number(holding.asset.current_price);
+        this.logger.warn(`Using cached price for ${ticker}: ${sellPrice}`);
+      } else {
+        throw new BadRequestException(`Unable to determine sell price for ${ticker}`);
+      }
+    }
+
+    // 卖出全部持仓
+    const quantity = Number(holding.quantity);
+    const totalAmount = quantity * sellPrice;
+
+    // 使用事务处理
+    const result = await this.prisma.$transaction(async (prisma) => {
+      // 删除持仓记录（全部卖出）
+      await prisma.holding.delete({
+        where: { id: holding.id },
+      });
+
+      // 创建卖出交易记录
+      const transaction = await prisma.transaction.create({
+        data: {
+          accountId: account.id,
+          transaction_type: 'sell',
+          transaction_date: new Date(),
+          quantity,
+          price_per_unit: sellPrice,
+          total_amount: totalAmount,
+          description: `Sold all ${quantity} shares of ${ticker}`,
+          assetId: holding.asset.id,
+        },
+      });
+
+      return { transaction, quantity, sellPrice, totalAmount };
+    });
+
+    this.logger.log(`User ${username} sold all ${quantity} shares of ${ticker} at $${sellPrice}`);
+
+    return {
+      success: true,
+      message: `Successfully sold all ${quantity} shares of ${ticker}`,
+      ticker,
+      quantity,
+      sellPrice,
+      totalAmount,
+      transaction: result.transaction,
+    };
+  }
+
+  /**
+   * 批量卖出持仓 (原有方法，保持兼容性)
    */
   async sellByTicker(sellByTickerDto: SellByTickerDto) {
     const { username, ticker, quantity, price, accountId } = sellByTickerDto;
 
-    // 验证用户
     const user = await this.prisma.user.findUnique({
       where: { username },
       include: {
@@ -499,7 +608,8 @@ export class HoldingsService {
       }
     } else {
       // 如果没有提供账户ID，使用用户的默认账户
-      account = user.portfolio.accounts.find(acc => acc.is_default);
+      // 没有 is_default 字段，默认取第一个账户
+      account = user.portfolio.accounts[0];
       if (!account) {
         throw new BadRequestException('No default account found for user. Please provide an accountId.');
       }

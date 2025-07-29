@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiBody, ApiResponse } from '@nestjs/swagger';
-import { HoldingsService, CreateHoldingDto, UpdateHoldingDto, BatchCreateHoldingDto, AddToPortfolioDto, SellByTickerDto } from './holdings.service';
+import { HoldingsService, CreateHoldingDto, UpdateHoldingDto, BatchCreateHoldingDto, AddToPortfolioDto, SellByTickerDto, SellAllByTickerDto } from './holdings.service';
 
 @ApiTags('holdings')
 @Controller('holdings')
@@ -28,7 +28,7 @@ export class HoldingsController {
     schema: { 
       type: 'object', 
       properties: { 
-        username: { type: 'string', example: 'testuser' }, 
+        username: { type: 'string', example: '5force' }, 
         ticker: { type: 'string', example: 'AAPL' }, 
         accountId: { type: 'number', example: 1 }, 
         quantity: { type: 'number', example: 100 }, 
@@ -115,12 +115,29 @@ export class HoldingsController {
     return this.holdingsService.sellHolding(+id, quantity, price);
   }
 
-  @ApiOperation({ summary: '通过股票代码卖出持仓（推荐使用）' })
+  @ApiOperation({ summary: '卖出全部持仓（最简单方式，推荐前端使用）' })
   @ApiBody({ 
     schema: { 
       type: 'object', 
       properties: { 
-        username: { type: 'string', example: 'testuser', description: '用户名' },
+        username: { type: 'string', example: '5force', description: '用户名' },
+        ticker: { type: 'string', example: 'AAPL', description: '股票代码' }
+      },
+      required: ['username', 'ticker']
+    } 
+  })
+  @ApiResponse({ status: 200, description: '全部卖出成功' })
+  @Post('sell-all-by-ticker')
+  sellAllByTicker(@Body() sellAllDto: SellAllByTickerDto) {
+    return this.holdingsService.sellAllByTicker(sellAllDto);
+  }
+
+  @ApiOperation({ summary: '通过股票代码卖出指定数量持仓（高级用法）' })
+  @ApiBody({ 
+    schema: { 
+      type: 'object', 
+      properties: { 
+        username: { type: 'string', example: '5force', description: '用户名' },
         ticker: { type: 'string', example: 'SOME', description: '股票代码' }, 
         quantity: { type: 'number', example: 50, description: '卖出数量' }, 
         price: { type: 'number', example: 155.00, description: '卖出价格（可选，不提供则使用市场价格）' },

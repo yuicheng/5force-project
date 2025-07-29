@@ -109,6 +109,9 @@ prisma/migrations/**/migration.sql
 logs
 *.log
 
+*.md
+!README.md
+
 # IDE
 .vscode/
 .idea/

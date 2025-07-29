@@ -45,6 +45,7 @@ export interface DetailedMarketData extends MarketData {
   timestamp: number;
 }
 
+
 @Injectable()
 export class MarketDataService {
   private readonly logger = new Logger(MarketDataService.name);
@@ -54,6 +55,19 @@ export class MarketDataService {
     const apiKey: string = 'd23qa31r01qv4g01pn60d23qa31r01qv4g01pn6g'; 
     this.finnhubClient = new finnhub.DefaultApi();
     this.finnhubClient.apiKey = apiKey;
+  }
+
+  async forceCheck(ticker: string): Promise<any> {
+    return new Promise((resolve) => {
+      this.finnhubClient.quote(ticker, (error: any, data: any) => {
+        if (error) {
+          resolve(false);
+          this.logger.warn(`Failed: ${ticker}`, error);
+        } else {
+          resolve(true);
+        }
+      });
+    });
   }
 
   /**

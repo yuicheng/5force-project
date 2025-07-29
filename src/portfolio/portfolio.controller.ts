@@ -8,7 +8,7 @@ export class PortfolioController {
   constructor(private readonly portfolioService: PortfolioService) {}
 
   @ApiOperation({ summary: '获取用户的完整投资组合信息，按类型分组' })
-  @ApiParam({ name: 'username', description: '用户名', example: 'john_doe' })
+  @ApiParam({ name: 'username', description: '用户名', example: '5force' })
   @ApiResponse({ status: 200, description: '投资组合信息' })
   @Get(':username')
   async getPortfolio(@Param('username') username: string) {
@@ -16,7 +16,7 @@ export class PortfolioController {
   }
 
   @ApiOperation({ summary: '获取投资组合的Top涨跌幅股票' })
-  @ApiParam({ name: 'username', description: '用户名', example: 'john_doe' })
+  @ApiParam({ name: 'username', description: '用户名', example: '5force' })
   @ApiQuery({ name: 'limit', description: '返回数量限制', required: false, example: '5' })
   @ApiResponse({ status: 200, description: '性能数据' })
   @Get(':username/performance')
@@ -29,7 +29,7 @@ export class PortfolioController {
   }
 
   @ApiOperation({ summary: '获取投资组合历史表现' })
-  @ApiParam({ name: 'username', description: '用户名', example: 'john_doe' })
+  @ApiParam({ name: 'username', description: '用户名', example: '5force' })
   @ApiQuery({ name: 'days', description: '历史天数', required: false, example: '30' })
   @ApiResponse({ status: 200, description: '历史表现数据' })
   @Get(':username/history')
@@ -42,7 +42,7 @@ export class PortfolioController {
   }
 
   @ApiOperation({ summary: '刷新投资组合中所有资产的价格' })
-  @ApiParam({ name: 'username', description: '用户名', example: 'john_doe' })
+  @ApiParam({ name: 'username', description: '用户名', example: '5force' })
   @ApiResponse({ status: 200, description: '价格刷新结果' })
   @Get(':username/refresh-prices')
   async refreshPrices(@Param('username') username: string) {

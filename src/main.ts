@@ -7,19 +7,30 @@ async function bootstrap() {
 
   // 启用CORS
   app.enableCors({
-    origin: [
-      /^http:\/\/localhost(:\d+)?$/,
-    ],
+    origin: true, // 允许所有来源（开发环境）
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization', 
+      'Accept', 
+      'Origin', 
+      'X-Requested-With',
+      'Access-Control-Allow-Origin',
+      'Access-Control-Allow-Headers',
+      'Access-Control-Allow-Methods'
+    ],
     credentials: true,
+    optionsSuccessStatus: 200, // 对于旧版本浏览器的支持
   });
+
+  const port = process.env.PORT ?? 3003;
 
   // 配置Swagger文档
   const config = new DocumentBuilder()
     .setTitle('Financial Portfolio API')
     .setDescription('Financial Portfolio管理系统的后端API文档')
     .setVersion('1.0')
+    .addServer(`http://localhost:${port}`, 'Development server')
     .addTag('market-data', '市场数据相关接口')
     .addTag('portfolio', '投资组合相关接口')
     .addTag('assets', '资产管理相关接口')
@@ -28,11 +39,15 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('api', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  });
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(port);
   
-  console.log(`🚀 Application is running on: http://localhost:${process.env.PORT ?? 3003}`);
-  console.log(`📚 Swagger documentation is available at: http://localhost:${process.env.PORT ?? 3003}/api`);
+  console.log(`🚀 Application is running on: http://localhost:${port}`);
+  console.log(`📚 Swagger documentation is available at: http://localhost:${port}/api`);
 }
 bootstrap();

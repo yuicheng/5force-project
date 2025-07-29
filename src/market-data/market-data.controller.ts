@@ -7,6 +7,13 @@ import { MarketDataService } from './market-data.service';
 export class MarketDataController {
   constructor(private readonly marketDataService: MarketDataService) {}
 
+  @ApiOperation({ summary: 'Test API for Finnhub' })
+  @ApiParam({ name: 'ticker', description: '股票代码', example: 'AAPL' })
+  @Get('test/:ticker')
+  async test(@Param('ticker') ticker: string) {
+    return await this.marketDataService.forceCheck(ticker);
+  }
+
   @ApiOperation({ summary: '验证ticker是否存在于真实世界中' })
   @ApiParam({ name: 'ticker', description: '股票代码', example: 'AAPL' })
   @ApiResponse({ status: 200, description: '验证结果', schema: { type: 'object', properties: { ticker: { type: 'string' }, isValid: { type: 'boolean' } } } })

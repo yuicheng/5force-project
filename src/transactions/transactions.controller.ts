@@ -31,7 +31,7 @@ export class TransactionsController {
   }
 
   @ApiOperation({ summary: '根据用户名获取交易记录' })
-  @ApiParam({ name: 'username', description: '用户名', example: 'john_doe' })
+  @ApiParam({ name: 'username', description: '用户名', example: '5force' })
   @ApiResponse({ status: 200, description: '用户交易记录' })
   @Get('user/:username')
   findByUsername(@Param('username') username: string) {
@@ -64,7 +64,7 @@ export class TransactionsController {
   }
 
   @ApiOperation({ summary: '获取30天现金流分析' })
-  @ApiParam({ name: 'username', description: '用户名', example: 'john_doe' })
+  @ApiParam({ name: 'username', description: '用户名', example: '5force' })
   @ApiQuery({ name: 'days', description: '分析天数', required: false, example: '30' })
   @ApiResponse({ status: 200, description: '现金流分析结果' })
   @Get('cashflow/:username')
@@ -77,7 +77,7 @@ export class TransactionsController {
   }
 
   @ApiOperation({ summary: '按资产类型分组的现金流分析' })
-  @ApiParam({ name: 'username', description: '用户名', example: 'john_doe' })
+  @ApiParam({ name: 'username', description: '用户名', example: '5force' })
   @ApiQuery({ name: 'days', description: '分析天数', required: false, example: '30' })
   @ApiResponse({ status: 200, description: '分组现金流分析结果' })
   @Get('cashflow/:username/by-asset-type')
@@ -90,7 +90,7 @@ export class TransactionsController {
   }
 
   @ApiOperation({ summary: '获取交易统计' })
-  @ApiParam({ name: 'username', description: '用户名', example: 'john_doe' })
+  @ApiParam({ name: 'username', description: '用户名', example: '5force' })
   @ApiQuery({ name: 'days', description: '统计天数', required: false, example: '30' })
   @ApiResponse({ status: 200, description: '交易统计数据' })
   @Get('stats/:username')
