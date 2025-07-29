@@ -42,6 +42,13 @@ export interface SellAllByTickerDto {
   ticker: string;
 }
 
+export interface SellHoldingDto {
+  username: string;
+  ticker: string;
+  quantity?: number; // 可选，不提供则全仓卖出
+  price?: number;    // 可选，不提供则使用市场价格
+}
+
 @Injectable()
 export class HoldingsService {
   private readonly logger = new Logger(HoldingsService.name);
@@ -405,7 +412,155 @@ export class HoldingsService {
   }
 
   /**
-   * 卖出持仓
+   * 统一的卖出接口 - 根据是否提供quantity自动判断全仓还是部分卖出
+   * 推荐使用这个方法替代 sellAllByTicker 和 sellByTicker
+   */
+  async sellByTickerUnified(sellDto: SellHoldingDto) {
+    const { username, ticker, quantity, price } = sellDto;
+
+    // 验证用户和获取账户信息
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+      include: {
+        portfolio: {
+          include: {
+            accounts: {
+              include: {
+                holdings: {
+                  include: {
+                    asset: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user?.portfolio) {
+      throw new NotFoundException(`Portfolio not found for user: ${username}`);
+    }
+
+    // 使用默认账户（第一个账户）- 符合单用户单portfolio单account的场景
+    const account = user.portfolio.accounts[0];
+    if (!account) {
+      throw new BadRequestException('No account found for user');
+    }
+
+    // 查找该股票的持仓
+    const holding = account.holdings.find(h => 
+      h.asset.ticker_symbol?.toLowerCase() === ticker.toLowerCase()
+    );
+
+    if (!holding) {
+      throw new NotFoundException(`No holding found for ticker: ${ticker}`);
+    }
+
+    const currentQuantity = Number(holding.quantity);
+    if (currentQuantity <= 0) {
+      throw new BadRequestException(`No shares to sell for ticker: ${ticker}`);
+    }
+
+    // 确定卖出数量
+    let sellQuantity: number;
+    if (quantity === undefined || quantity === null) {
+      // 全仓卖出
+      sellQuantity = currentQuantity;
+    } else {
+      // 部分卖出
+      if (quantity <= 0) {
+        throw new BadRequestException('Sell quantity must be greater than 0');
+      }
+      if (quantity > currentQuantity) {
+        throw new BadRequestException(`Insufficient quantity. Available: ${currentQuantity}, Requested: ${quantity}`);
+      }
+      sellQuantity = quantity;
+    }
+
+    // 确定卖出价格
+    let sellPrice = price;
+    if (!sellPrice) {
+      try {
+        const marketData = await this.marketDataService.getAssetData(ticker);
+        sellPrice = marketData.currentPrice;
+      } catch (error) {
+        // 如果无法获取市场价格，使用资产的当前价格
+        if (holding.asset.current_price) {
+          sellPrice = Number(holding.asset.current_price);
+          this.logger.warn(`Using cached price for ${ticker}: ${sellPrice}`);
+        } else {
+          throw new BadRequestException(`Unable to determine sell price for ${ticker}`);
+        }
+      }
+    }
+
+    const totalAmount = sellQuantity * sellPrice;
+    const remainingQuantity = currentQuantity - sellQuantity;
+    const isFullSell = remainingQuantity === 0;
+
+    // 使用事务处理
+    const result = await this.prisma.$transaction(async (prisma) => {
+      let updatedHolding: any = null;
+
+      if (isFullSell) {
+        // 全仓卖出，删除持仓记录
+        await prisma.holding.delete({
+          where: { id: holding.id },
+        });
+      } else {
+        // 部分卖出，更新持仓数量
+        updatedHolding = await prisma.holding.update({
+          where: { id: holding.id },
+          data: { quantity: remainingQuantity },
+          include: {
+            account: true,
+            asset: true,
+          },
+        });
+      }
+
+      // 创建卖出交易记录
+      const transaction = await prisma.transaction.create({
+        data: {
+          accountId: account.id,
+          transaction_type: 'sell',
+          transaction_date: new Date(),
+          quantity: sellQuantity,
+          price_per_unit: sellPrice,
+          total_amount: totalAmount,
+          description: isFullSell 
+            ? `Sold all ${sellQuantity} shares of ${ticker}`
+            : `Sold ${sellQuantity} shares of ${ticker}`,
+          assetId: holding.asset.id,
+        },
+      });
+
+      return { transaction, updatedHolding };
+    });
+
+    this.logger.log(
+      `User ${username} sold ${sellQuantity} shares of ${ticker} at $${sellPrice} ` +
+      `(${isFullSell ? 'full sell' : 'partial sell'})`
+    );
+
+    return {
+      success: true,
+      message: isFullSell 
+        ? `Successfully sold all ${sellQuantity} shares of ${ticker}`
+        : `Successfully sold ${sellQuantity} shares of ${ticker}, ${remainingQuantity} shares remaining`,
+      ticker,
+      quantity: sellQuantity,
+      sellPrice,
+      totalAmount,
+      remainingHolding: result.updatedHolding,
+      isFullSell,
+      transaction: result.transaction,
+    };
+  }
+
+  /**
+   * 卖出持仓 (按ID)
    */
   async sellHolding(id: number, quantity: number, price?: number) {
     const holding = await this.findOne(id);

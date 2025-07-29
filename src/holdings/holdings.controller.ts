@@ -1,29 +1,29 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiBody, ApiResponse } from '@nestjs/swagger';
-import { HoldingsService, CreateHoldingDto, UpdateHoldingDto, BatchCreateHoldingDto, AddToPortfolioDto, SellByTickerDto, SellAllByTickerDto } from './holdings.service';
+import { HoldingsService, CreateHoldingDto, UpdateHoldingDto, BatchCreateHoldingDto, AddToPortfolioDto, SellByTickerDto, SellAllByTickerDto, SellHoldingDto } from './holdings.service';
 
 @ApiTags('holdings')
 @Controller('holdings')
 export class HoldingsController {
   constructor(private readonly holdingsService: HoldingsService) {}
 
-  @ApiOperation({ summary: '创建持仓' })
+  @ApiOperation({ summary: 'Create a holding' })
   @ApiBody({ schema: { type: 'object', properties: { accountId: { type: 'number', example: 1 }, assetId: { type: 'number', example: 1 }, quantity: { type: 'number', example: 100 }, averageCostBasis: { type: 'number', example: 140.00 } } } })
-  @ApiResponse({ status: 201, description: '持仓创建成功' })
+  @ApiResponse({ status: 201, description: 'Holding created successfully' })
   @Post()
   create(@Body() createHoldingDto: CreateHoldingDto) {
     return this.holdingsService.create(createHoldingDto);
   }
 
-  @ApiOperation({ summary: '批量创建持仓' })
+  @ApiOperation({ summary: 'Batch create holdings' })
   @ApiBody({ schema: { type: 'object', properties: { holdings: { type: 'array', items: { type: 'object', properties: { accountId: { type: 'number' }, assetId: { type: 'number' }, quantity: { type: 'number' }, averageCostBasis: { type: 'number' } } } } } } })
-  @ApiResponse({ status: 201, description: '批量创建结果' })
+  @ApiResponse({ status: 201, description: 'Batch create result' })
   @Post('batch')
   batchCreate(@Body() batchDto: BatchCreateHoldingDto) {
     return this.holdingsService.batchCreate(batchDto);
   }
 
-  @ApiOperation({ summary: '添加资产到投资组合（On Demand Populate）' })
+  @ApiOperation({ summary: 'Add asset to portfolio' })
   @ApiBody({ 
     schema: { 
       type: 'object', 
@@ -40,72 +40,72 @@ export class HoldingsController {
       required: ['username', 'ticker', 'accountId', 'quantity']
     } 
   })
-  @ApiResponse({ status: 201, description: '资产添加成功' })
+  @ApiResponse({ status: 201, description: 'Asset added successfully' })
   @Post('add-to-portfolio')
   addToPortfolio(@Body() addToPortfolioDto: AddToPortfolioDto) {
     return this.holdingsService.addToPortfolio(addToPortfolioDto);
   }
 
-  @ApiOperation({ summary: '获取所有持仓' })
-  @ApiResponse({ status: 200, description: '持仓列表' })
+  @ApiOperation({ summary: 'Get all holdings' })
+  @ApiResponse({ status: 200, description: 'List of holdings' })
   @Get()
   findAll() {
     return this.holdingsService.findAll();
   }
 
-  @ApiOperation({ summary: '根据账户ID获取持仓' })
-  @ApiParam({ name: 'accountId', description: '账户ID', example: '1' })
-  @ApiResponse({ status: 200, description: '账户持仓列表' })
+  @ApiOperation({ summary: 'Get all holdings by account id' })
+  @ApiParam({ name: 'accountId', description: 'Account ID', example: '1' })
+  @ApiResponse({ status: 200, description: 'List of holdings of account id' })
   @Get('account/:accountId')
   findByAccount(@Param('accountId') accountId: string) {
     return this.holdingsService.findByAccount(+accountId);
   }
 
-  @ApiOperation({ summary: '根据用户名获取持仓' })
-  @ApiParam({ name: 'username', description: '用户名', example: '5force' })
-  @ApiResponse({ status: 200, description: '用户持仓列表' })
+  @ApiOperation({ summary: 'Get all holdings by username' })
+  @ApiParam({ name: 'username', description: 'User name', example: '5force' })
+  @ApiResponse({ status: 200, description: 'List of holdings of user name' })
   @Get('user/:username')
   findByUsername(@Param('username') username: string) {
     return this.holdingsService.findByUsername(username);
   }
 
-  @ApiOperation({ summary: '根据ID获取持仓' })
-  @ApiParam({ name: 'id', description: '持仓ID', example: '1' })
-  @ApiResponse({ status: 200, description: '持仓详情' })
+  @ApiOperation({ summary: 'Get holding by id' })
+  @ApiParam({ name: 'holdingId', description: 'Holding ID', example: '1' })
+  @ApiResponse({ status: 200, description: 'Holding details' })
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('holdingId') id: string) {
     return this.holdingsService.findOne(+id);
   }
 
-  @ApiOperation({ summary: '更新持仓' })
-  @ApiParam({ name: 'id', description: '持仓ID', example: '1' })
+  @ApiOperation({ summary: 'Update holding' })
+  @ApiParam({ name: 'id', description: 'Holding ID', example: '1' })
   @ApiBody({ schema: { type: 'object', properties: { quantity: { type: 'number', example: 150 }, averageCostBasis: { type: 'number', example: 145.00 } } } })
-  @ApiResponse({ status: 200, description: '更新成功' })
+  @ApiResponse({ status: 200, description: 'Update success' })
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateHoldingDto: UpdateHoldingDto) {
     return this.holdingsService.update(+id, updateHoldingDto);
   }
 
-  @ApiOperation({ summary: '删除持仓' })
-  @ApiParam({ name: 'id', description: '持仓ID', example: '1' })
-  @ApiResponse({ status: 200, description: '删除成功' })
+  @ApiOperation({ summary: 'Delete Holding' })
+  @ApiParam({ name: 'id', description: 'Holding ID', example: '1' })
+  @ApiResponse({ status: 200, description: 'Delete success' })
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.holdingsService.remove(+id);
   }
 
-  @ApiOperation({ summary: '批量删除持仓' })
+  @ApiOperation({ summary: 'Batch delete holdings' })
   @ApiBody({ schema: { type: 'object', properties: { ids: { type: 'array', items: { type: 'number' }, example: [1, 2, 3] } } } })
-  @ApiResponse({ status: 200, description: '批量删除结果' })
+  @ApiResponse({ status: 200, description: 'Batch delete result' })
   @Delete('batch')
   batchRemove(@Body('ids') ids: number[]) {
     return this.holdingsService.batchRemove(ids);
   }
 
-  @ApiOperation({ summary: '卖出持仓' })
-  @ApiParam({ name: 'id', description: '持仓ID', example: '1' })
+  @ApiOperation({ summary: 'Sell holding by id and quantity, optional price' })
+  @ApiParam({ name: 'id', description: 'Holding ID', example: '1' })
   @ApiBody({ schema: { type: 'object', properties: { quantity: { type: 'number', example: 50 }, price: { type: 'number', example: 155.00 } } } })
-  @ApiResponse({ status: 200, description: '卖出成功' })
+  @ApiResponse({ status: 200, description: 'Sell success' })
   @Post(':id/sell')
   sellHolding(
     @Param('id') id: string,
@@ -115,40 +115,43 @@ export class HoldingsController {
     return this.holdingsService.sellHolding(+id, quantity, price);
   }
 
-  @ApiOperation({ summary: '卖出全部持仓（最简单方式，推荐前端使用）' })
+
+  @ApiOperation({ summary: 'Sell a holding of user and ticker, optional quantity and price'})
   @ApiBody({ 
     schema: { 
       type: 'object', 
       properties: { 
-        username: { type: 'string', example: '5force', description: '用户名' },
-        ticker: { type: 'string', example: 'AAPL', description: '股票代码' }
+        username: { type: 'string', example: '5force', description: 'username' },
+        ticker: { type: 'string', example: 'AAPL', description: 'ticker' }, 
+        quantity: { type: 'number', example: 50, description: 'quantity (Optional)' }, 
+        price: { type: 'number', example: 155.00, description: 'price (Optional)' }
       },
       required: ['username', 'ticker']
     } 
   })
-  @ApiResponse({ status: 200, description: '全部卖出成功' })
-  @Post('sell-all-by-ticker')
-  sellAllByTicker(@Body() sellAllDto: SellAllByTickerDto) {
-    return this.holdingsService.sellAllByTicker(sellAllDto);
-  }
-
-  @ApiOperation({ summary: '通过股票代码卖出指定数量持仓（高级用法）' })
-  @ApiBody({ 
-    schema: { 
-      type: 'object', 
-      properties: { 
-        username: { type: 'string', example: '5force', description: '用户名' },
-        ticker: { type: 'string', example: 'SOME', description: '股票代码' }, 
-        quantity: { type: 'number', example: 50, description: '卖出数量' }, 
-        price: { type: 'number', example: 155.00, description: '卖出价格（可选，不提供则使用市场价格）' },
-        accountId: { type: 'number', example: 1, description: '账户ID（可选，不提供则使用用户的默认账户）' }
-      },
-      required: ['username', 'ticker', 'quantity']
-    } 
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Sell success',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        message: { type: 'string' },
+        ticker: { type: 'string' },
+        quantity: { type: 'number' },
+        sellPrice: { type: 'number' },
+        totalAmount: { type: 'number' },
+        isFullSell: { type: 'boolean' },
+        remainingHolding: { 
+          type: 'object',
+          nullable: true,
+          description: 'Remaining holding info (null for full sell)'
+        }
+      }
+    }
   })
-  @ApiResponse({ status: 200, description: '卖出成功' })
-  @Post('sell-by-ticker')
-  sellByTicker(@Body() sellByTickerDto: SellByTickerDto) {
-    return this.holdingsService.sellByTicker(sellByTickerDto);
+  @Post('sell')
+  sellByTickerUnified(@Body() sellDto: SellHoldingDto) {
+    return this.holdingsService.sellByTickerUnified(sellDto);
   }
 } 
