@@ -1,0 +1,164 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountType {
+  depository // 现金类账户，如支票、储蓄
+  investment // 投资类账户，如经纪账户
+  loan
+  other
+}
+
+enum AssetType {
+  stock
+  etf
+  option
+  mutual_fund
+  crypto
+}
+
+enum TransactionType {
+  buy
+  sell
+  deposit
+  withdrawal
+  dividend
+  interest
+  fee
+}
+
+
+
+// 
+model User {
+  id            Int      @id @default(autoincrement())
+  username      String   @unique
+  email         String   @unique
+  password_hash String
+  createdAt     DateTime @default(now())
+
+  portfolio Portfolio?
+}
+
+model Portfolio {
+  id        Int      @id @default(autoincrement())
+  name      String   @default("My Portfolio")
+  currency  String   @default("USD")
+  createdAt DateTime @default(now())
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int      @unique // A portfolio belongs to one unique user
+
+  accounts  Account[]
+  history   Portfolio_History[]
+}
+
+model Account {
+  id               Int      @id @default(autoincrement())
+  institution_name String
+  account_name     String
+  account_type     AccountType
+  balance_current  Decimal  @default(0.00)
+  balance_updated_at DateTime?
+
+  // Relations
+  portfolio        Portfolio @relation(fields: [portfolioId], references: [id])
+  portfolioId      Int
+
+  holdings         Holding[]
+  transactions     Transaction[]
+}
+
+model Asset {
+  id                   Int              @id @default(autoincrement())
+  ticker_symbol        String?          @unique
+  name                 String
+  asset_type           AssetType
+  current_price        Decimal?
+  percent_change_today Decimal?
+  price_updated_at     DateTime?
+  lastUpdated          DateTime         @default(now())
+  currency             String           @default("USD")
+
+  // Relations
+  asset_history        Asset_History[]  @relation("AssetToHistory")
+  holdings             Holding[]
+  transactions         Transaction[]
+}
+
+model Asset_History {
+  history_id   Int      @id @default(autoincrement())
+  asset_id     Int
+  date         DateTime
+  open_price   Decimal
+  high_price   Decimal
+  low_price    Decimal
+  close_price  Decimal
+  volume       Int
+
+  // Relations
+  asset        Asset    @relation("AssetToHistory", fields: [asset_id], references: [id])
+
+  // Constraints
+  @@unique([asset_id, date])
+}
+
+model Holding {
+  id                 Int      @id @default(autoincrement())
+  quantity           Decimal
+  average_cost_basis Decimal
+  updated_at         DateTime @updatedAt
+
+  // Relations
+  account            Account @relation(fields: [accountId], references: [id])
+  accountId          Int
+  asset              Asset   @relation(fields: [assetId], references: [id])
+  assetId            Int
+
+  // Constraints
+  @@unique([accountId, assetId])
+}
+
+model Transaction {
+  id             Int             @id @default(autoincrement())
+  transaction_type TransactionType
+  transaction_date DateTime
+  quantity       Decimal?        // Optional for transactions like fees
+  price_per_unit Decimal?        // Optional for transactions like deposits
+  total_amount   Decimal
+  description    String?
+
+  // Relations
+  account        Account @relation(fields: [accountId], references: [id])
+  accountId      Int
+  asset          Asset?  @relation(fields: [assetId], references: [id])
+  assetId        Int?    // Optional because a deposit/withdrawal doesn't have an asset
+}
+
+model Portfolio_History {
+  id               Int      @id @default(autoincrement())
+  snapshot_date    DateTime
+  net_worth        Decimal
+  cash_value       Decimal
+  investment_value Decimal
+
+  // Relations
+  portfolio        Portfolio @relation(fields: [portfolioId], references: [id])
+  portfolioId      Int
+
+  // Constraints
+  @@unique([portfolioId, snapshot_date])
+}
+
