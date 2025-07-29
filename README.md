@@ -13,8 +13,19 @@
 # 安装依赖
 npm install
 
-# 运行数据库迁移
-npx prisma migrate dev
+
+# If you're going to do a dry run
+Set your db file location in `.env`
+```bash
+DATABASE_URL = "file:./{your_db_file}.db"
+```
+and
+`npx prisma migrate dev`
+
+# Prisma 生成
+npx prisma generate
+
+
 
 # 启动开发服务器
 npm run start:dev
