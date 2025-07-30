@@ -5,6 +5,8 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 
+docs/
+
 # Runtime data
 pids
 *.pid
@@ -98,6 +100,7 @@ build/
 *.db
 *.sqlite
 *.sqlite3
+prisma/*.db.*
 !prisma/dev.db
 !finance_portfolio_priority.db
 
