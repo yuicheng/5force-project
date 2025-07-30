@@ -35,6 +35,18 @@ export class AssetsService {
     private marketDataService: MarketDataService,
   ) {}
 
+  async refreshPriceByTicker(ticker: string) {
+    const searchResult = await this.prisma.asset.findFirst({
+      where: {
+        ticker_symbol: ticker,
+      },
+    });
+    if (!searchResult) {
+      throw new NotFoundException(`Asset with ticker ${ticker} not found`);
+    }
+    return this.refreshPrice(searchResult.id);
+  }
+
   /**
    * 创建单个资产
    */
@@ -103,9 +115,11 @@ export class AssetsService {
   /**
    * 获取所有资产
    */
-  async findAll() {
+  async findBatch(page: number = 1, limit: number = 30) {
     return await this.prisma.asset.findMany({
-      orderBy: { name: 'asc' },
+      orderBy: { id: 'asc' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
   }
 
@@ -253,12 +267,14 @@ export class AssetsService {
    * @param assetId 资产ID
    * @param detailedMarketData 详细市场数据
    * @param date 记录日期，默认为当前时间
+   * @param prisma prisma client, default is this.prisma, when in transaction, pass the prisma instance of the transaction
    * @returns 创建或更新的历史记录
    */
   private async upsertAssetHistory(
     assetId: number, 
     detailedMarketData: DetailedMarketData, 
-    date: Date = new Date()
+    date: Date = new Date(),
+    prisma: any = this.prisma
   ) {
     // 获取今天的日期范围（不包含时间）
     const today = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -266,7 +282,7 @@ export class AssetsService {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     // 首先检查今天是否已有记录
-    const existingHistory = await this.prisma.asset_History.findFirst({
+    const existingHistory = await prisma.asset_History.findFirst({
       where: {
         asset_id: assetId,
         date: {
@@ -286,7 +302,7 @@ export class AssetsService {
 
     if (existingHistory) {
       // 如果存在当天记录，更新它
-      const updatedHistory = await this.prisma.asset_History.update({
+      const updatedHistory = await prisma.asset_History.update({
         where: { history_id: existingHistory.history_id },
         data: historyData,
       });
@@ -295,7 +311,7 @@ export class AssetsService {
       return { history: updatedHistory, isNew: false };
     } else {
       // 如果不存在当天记录，创建新记录
-      const newHistory = await this.prisma.asset_History.create({
+      const newHistory = await prisma.asset_History.create({
         data: {
           asset_id: assetId,
           date: date,
@@ -333,7 +349,7 @@ export class AssetsService {
       });
 
       // 更新或创建历史记录
-      const historyResult = await this.upsertAssetHistory(assetId, detailedMarketData, now);
+      const historyResult = await this.upsertAssetHistory(assetId, detailedMarketData, now, prisma);
 
       return {
         asset: updatedAsset,
