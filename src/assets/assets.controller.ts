@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { AssetsService, CreateAssetDto, UpdateAssetDto, BatchCreateAssetDto, AssetHistoryQueryDto } from './assets.service';
+import { match } from 'assert';
+import { isEmail, isEmpty } from 'class-validator';
 
 @ApiTags('assets')
 @Controller('assets')
@@ -8,7 +10,18 @@ export class AssetsController {
   constructor(private readonly assetsService: AssetsService) {}
 
   @ApiOperation({ summary: '创建单个资产' })
-  @ApiBody({ schema: { type: 'object', properties: { ticker: { type: 'string', example: 'AAPL' }, name: { type: 'string', example: 'Apple Inc.' }, assetType: { type: 'string', example: 'stock' }, price: { type: 'number', example: 150.25 } } } })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        ticker: { type: 'string', example: 'AAPL', description: '资产的股票代码' },
+        name: { type: 'string', example: 'Apple Inc.', description: '资产名称' },
+        assetType: { type: 'string', example: 'stock', description: '资产类型，如stock、etf等' },
+        price: { type: 'number', example: 150.25, description: '初始价格' },
+      },
+      required: ['ticker'],
+    },
+  })
   @ApiResponse({ status: 201, description: '资产创建成功' })
   @Post()
   create(@Body() createAssetDto: CreateAssetDto) {
@@ -16,31 +29,54 @@ export class AssetsController {
   }
 
   @ApiOperation({ summary: '批量创建资产' })
-  @ApiBody({ schema: { type: 'object', properties: { assets: { type: 'array', items: { type: 'object', properties: { ticker: { type: 'string' }, name: { type: 'string' }, assetType: { type: 'string' }, price: { type: 'number' } } } } } } })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        assets: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              ticker: { type: 'string' },
+              name: { type: 'string' },
+              assetType: { type: 'string' },
+              price: { type: 'number' },
+            },
+          },
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 201, description: '批量创建结果' })
   @Post('batch')
   batchCreate(@Body() batchDto: BatchCreateAssetDto) {
     return this.assetsService.batchCreateAssets(batchDto);
   }
 
-  @ApiOperation({ summary: '获取所有资产' })
+  @ApiOperation({ summary: 'Batch get assets' })
   @ApiResponse({ status: 200, description: '资产列表' })
+  @ApiQuery({ name: 'page', description: 'page number', example: 1, required: false })
+  @ApiQuery({ name: 'limit', description: 'max entries per page ', example: 10, required: false })
   @Get()
-  findAll() {
-    return this.assetsService.findAll();
+  findAll(@Query('page') page?: string, @Query('limit') limit?: string) {
+    // JavaScript doesn't have unwarp_or_else()
+    const pageNum = page ?? 1;
+    const limitNum = limit ?? 10;
+    return this.assetsService.findBatch(+pageNum, +limitNum);
   }
 
-  @ApiOperation({ summary: '搜索资产' })
-  @ApiQuery({ name: 'q', description: '搜索关键词', example: 'Apple' })
-  @ApiResponse({ status: 200, description: '搜索结果' })
+  @ApiOperation({ summary: 'Search assets' })
+  @ApiQuery({ name: 'q', description: 'Keyword', example: 'Apple' })
+  @ApiResponse({ status: 200, description: 'Result list' })
   @Get('search')
   search(@Query('q') query: string) {
     return this.assetsService.search(query);
   }
 
-  @ApiOperation({ summary: '根据ID获取资产' })
-  @ApiParam({ name: 'id', description: '资产ID', example: '1' })
-  @ApiResponse({ status: 200, description: '资产信息' })
+  @ApiOperation({ summary: 'Get asset by id' })
+  @ApiParam({ name: 'id', description: 'assetId', example: '1' })
+  @ApiResponse({ status: 200, description: 'asset info' })
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.assetsService.findOne(+id);
@@ -79,21 +115,29 @@ export class AssetsController {
     return this.assetsService.batchRemove(ids);
   }
 
-  @ApiOperation({ summary: '刷新资产价格' })
-  @ApiParam({ name: 'id', description: '资产ID', example: '1' })
-  @ApiResponse({ status: 200, description: '价格刷新成功' })
+  @ApiOperation({ summary: 'Refresh asset price by assetId' })
+  @ApiParam({ name: 'id', description: 'assetId', example: '1' })
+  @ApiResponse({ status: 200, description: '200 SUCCESS' })
   @Get(':id/refresh-price')
   refreshPrice(@Param('id') id: string) {
     return this.assetsService.refreshPrice(+id);
   }
 
+  @ApiOperation({ summary: 'Refresh asset price by ticker' })
+  @ApiParam({ name: 'ticker', description: 'ticker', example: 'AAPL' })
+  @ApiResponse({ status: 200, description: '200 SUCCESS' })
+  @Get('ticker/:ticker/refresh-price')
+  refreshPriceByTicker(@Param('ticker') ticker: string) {
+    return this.assetsService.refreshPriceByTicker(ticker);
+  }
+
   @ApiOperation({ summary: 'Get history of an asset by ID' })
-  @ApiParam({ name: 'id', description: '资产ID', example: '1' })
-  @ApiQuery({ name: 'startDate', description: '开始日期', example: '2025-06-01', required: false })
-  @ApiQuery({ name: 'endDate', description: '结束日期', example: '2024-07-31', required: false })
-  @ApiQuery({ name: 'page', description: '页码', example: 1, required: false })
-  @ApiQuery({ name: 'limit', description: '每页数量', example: 30, required: false })
-  @ApiResponse({ status: 200, description: '历史记录列表' })
+  @ApiParam({ name: 'id', description: 'AssetID', example: '1' })
+  @ApiQuery({ name: 'startDate', description: 'Start date', example: '2025-06-30', required: false })
+  @ApiQuery({ name: 'endDate', description: 'End date', example: '2024-07-31', required: false })
+  @ApiQuery({ name: 'page', description: 'page number', example: 1, required: false })
+  @ApiQuery({ name: 'limit', description: 'page size', example: 30, required: false })
+  @ApiResponse({ status: 200, description: 'History list of an asset' })
   @Get(':id/history')
   getAssetHistory(
     @Param('id') id: string,
@@ -113,7 +157,7 @@ export class AssetsController {
 
   @ApiOperation({ summary: 'Get history of an asset by Ticker' })
   @ApiParam({ name: 'ticker', description: '股票代码', example: 'AAPL' })
-  @ApiQuery({ name: 'startDate', description: '开始日期', example: '2025-06-01', required: false })
+  @ApiQuery({ name: 'startDate', description: '开始日期', example: '2025-06-030', required: false })
   @ApiQuery({ name: 'endDate', description: '结束日期', example: '2025-07-31', required: false })
   @ApiQuery({ name: 'page', description: '页码', example: 1, required: false })
   @ApiQuery({ name: 'limit', description: '每页数量', example: 30, required: false })
