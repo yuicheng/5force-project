@@ -426,6 +426,7 @@ export class AssetsService {
 
   /**
    * 根据ticker获取历史记录
+   * @description 实际上是先通过ticker找id 然后通过id去找历史记录
    */
   async getAssetHistoryByTicker(ticker: string, queryDto: AssetHistoryQueryDto = {}) {
     const asset = await this.findByTicker(ticker);
