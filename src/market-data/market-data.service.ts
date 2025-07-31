@@ -208,6 +208,7 @@ export class MarketDataService {
 
   /**
    * Get detailed market data including OHLCV from Finnhub
+   * @description 这个方法一定会从Finnhub获取数据，不会使用缓存数据
    * @param ticker
    * @param cachedAsset 
    * @returns DetailedMarketData object with complete price information

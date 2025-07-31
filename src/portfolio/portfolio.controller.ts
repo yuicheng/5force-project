@@ -7,18 +7,18 @@ import { PortfolioService } from './portfolio.service';
 export class PortfolioController {
   constructor(private readonly portfolioService: PortfolioService) {}
 
-  @ApiOperation({ summary: '获取用户的完整投资组合信息，按类型分组' })
-  @ApiParam({ name: 'username', description: '用户名', example: '5force' })
-  @ApiResponse({ status: 200, description: '投资组合信息' })
+  @ApiOperation({ summary: 'Get portfolio by username' })
+  @ApiParam({ name: 'username', description: 'Username', example: '5force' })
+  @ApiResponse({ status: 200, description: 'portfolio' })
   @Get(':username')
   async getPortfolio(@Param('username') username: string) {
     return await this.portfolioService.getPortfolioByUsername(username);
   }
 
-  @ApiOperation({ summary: '获取投资组合的Top涨跌幅股票' })
-  @ApiParam({ name: 'username', description: '用户名', example: '5force' })
-  @ApiQuery({ name: 'limit', description: '返回数量限制', required: false, example: '5' })
-  @ApiResponse({ status: 200, description: '性能数据' })
+  @ApiOperation({ summary: 'Get gainers and losers of ' })
+  @ApiParam({ name: 'username', description: 'username', example: '5force' })
+  @ApiQuery({ name: 'limit', description: 'Max entries', required: false, example: '5' })
+  @ApiResponse({ status: 200, description: 'Gainers and Losers list' })
   @Get(':username/performance')
   async getPerformance(
     @Param('username') username: string,
@@ -28,10 +28,10 @@ export class PortfolioController {
     return await this.portfolioService.getTopPerformers(username, limitNum);
   }
 
-  @ApiOperation({ summary: '获取投资组合历史表现' })
-  @ApiParam({ name: 'username', description: '用户名', example: '5force' })
-  @ApiQuery({ name: 'days', description: '历史天数', required: false, example: '30' })
-  @ApiResponse({ status: 200, description: '历史表现数据' })
+  @ApiOperation({ summary: 'Get portfolio history by username' })
+  @ApiParam({ name: 'username', description: 'Username', example: '5force' })
+  @ApiQuery({ name: 'days', description: 'Days', required: false, example: '30' })
+  @ApiResponse({ status: 200, description: 'History data' })
   @Get(':username/history')
   async getHistory(
     @Param('username') username: string,
@@ -41,9 +41,9 @@ export class PortfolioController {
     return await this.portfolioService.getPortfolioHistory(username, daysNum);
   }
 
-  @ApiOperation({ summary: '刷新投资组合中所有资产的价格' })
-  @ApiParam({ name: 'username', description: '用户名', example: '5force' })
-  @ApiResponse({ status: 200, description: '价格刷新结果' })
+  @ApiOperation({ summary: 'Refresh all assets in portfolio' })
+  @ApiParam({ name: 'username', description: 'Username', example: '5force' })
+  @ApiResponse({ status: 200, description: 'Refresh result' })
   @Get(':username/refresh-prices')
   async refreshPrices(@Param('username') username: string) {
     return await this.portfolioService.refreshPortfolioPrices(username);
