@@ -1,34 +1,32 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { AssetsService, CreateAssetDto, UpdateAssetDto, BatchCreateAssetDto, AssetHistoryQueryDto } from './assets.service';
-import { match } from 'assert';
-import { isEmail, isEmpty } from 'class-validator';
 
 @ApiTags('assets')
 @Controller('assets')
 export class AssetsController {
   constructor(private readonly assetsService: AssetsService) {}
 
-  @ApiOperation({ summary: '创建单个资产' })
+  @ApiOperation({ summary: 'Create a SINGLE asset' })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        ticker: { type: 'string', example: 'AAPL', description: '资产的股票代码' },
-        name: { type: 'string', example: 'Apple Inc.', description: '资产名称' },
-        assetType: { type: 'string', example: 'stock', description: '资产类型，如stock、etf等' },
-        price: { type: 'number', example: 150.25, description: '初始价格' },
+        ticker: { type: 'string', example: 'AAPL', description: 'Ticker' },
+        name: { type: 'string', example: 'Apple Inc.', description: 'Assest name' },
+        assetType: { type: 'string', example: 'stock', description: 'Asset type' },
+        price: { type: 'number', example: 150.25, description: 'Price' },
       },
       required: ['ticker'],
     },
   })
-  @ApiResponse({ status: 201, description: '资产创建成功' })
+  @ApiResponse({ status: 201, description: 'Created' })
   @Post()
   create(@Body() createAssetDto: CreateAssetDto) {
     return this.assetsService.createAsset(createAssetDto);
   }
 
-  @ApiOperation({ summary: '批量创建资产' })
+  @ApiOperation({ summary: 'Batch create' })
   @ApiBody({
     schema: {
       type: 'object',
@@ -48,14 +46,14 @@ export class AssetsController {
       },
     },
   })
-  @ApiResponse({ status: 201, description: '批量创建结果' })
+  @ApiResponse({ status: 201, description: 'List of results with coresponding assetId' })
   @Post('batch')
   batchCreate(@Body() batchDto: BatchCreateAssetDto) {
     return this.assetsService.batchCreateAssets(batchDto);
   }
 
   @ApiOperation({ summary: 'Batch get assets' })
-  @ApiResponse({ status: 200, description: '资产列表' })
+  @ApiResponse({ status: 200, description: 'List of assets' })
   @ApiQuery({ name: 'page', description: 'page number', example: 1, required: false })
   @ApiQuery({ name: 'limit', description: 'max entries per page ', example: 10, required: false })
   @Get()
@@ -74,7 +72,7 @@ export class AssetsController {
     return this.assetsService.search(query);
   }
 
-  @ApiOperation({ summary: 'Get asset by id' })
+  @ApiOperation({ summary: 'Get asset by assetId' })
   @ApiParam({ name: 'id', description: 'assetId', example: '1' })
   @ApiResponse({ status: 200, description: 'asset info' })
   @Get(':id')
@@ -82,34 +80,34 @@ export class AssetsController {
     return this.assetsService.findOne(+id);
   }
 
-  @ApiOperation({ summary: '根据Ticker获取资产' })
-  @ApiParam({ name: 'ticker', description: '股票代码', example: 'AAPL' })
-  @ApiResponse({ status: 200, description: '资产信息' })
+  @ApiOperation({ summary: 'Get asset by Ticker' })
+  @ApiParam({ name: 'ticker', description: 'Ticker', example: 'AAPL' })
+  @ApiResponse({ status: 200, description: 'Asset info' })
   @Get('ticker/:ticker')
   findByTicker(@Param('ticker') ticker: string) {
     return this.assetsService.findByTicker(ticker);
   }
 
-  @ApiOperation({ summary: '更新资产' })
-  @ApiParam({ name: 'id', description: '资产ID', example: '1' })
+  @ApiOperation({ summary: 'Update an asset by assetId' })
+  @ApiParam({ name: 'id', description: 'assetId', example: '1' })
   @ApiBody({ schema: { type: 'object', properties: { name: { type: 'string', example: 'Updated Name' }, assetType: { type: 'string', example: 'stock' }, price: { type: 'number', example: 155.00 } } } })
-  @ApiResponse({ status: 200, description: '更新成功' })
+  @ApiResponse({ status: 200, description: 'Success' })
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateAssetDto: UpdateAssetDto) {
     return this.assetsService.update(+id, updateAssetDto);
   }
 
-  @ApiOperation({ summary: '删除资产' })
-  @ApiParam({ name: 'id', description: '资产ID', example: '1' })
-  @ApiResponse({ status: 200, description: '删除成功' })
+  @ApiOperation({ summary: 'Delete an asset by assetId' })
+  @ApiParam({ name: 'id', description: 'assetId', example: '1' })
+  @ApiResponse({ status: 200, description: 'Success' })
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.assetsService.remove(+id);
   }
 
-  @ApiOperation({ summary: '批量删除资产' })
+  @ApiOperation({ summary: 'Batch delete assets by assetIds' })
   @ApiBody({ schema: { type: 'object', properties: { ids: { type: 'array', items: { type: 'number' }, example: [1, 2, 3] } } } })
-  @ApiResponse({ status: 200, description: '批量删除结果' })
+  @ApiResponse({ status: 200, description: 'Success' })
   @Delete('batch')
   batchRemove(@Body('ids') ids: number[]) {
     return this.assetsService.batchRemove(ids);
@@ -117,7 +115,7 @@ export class AssetsController {
 
   @ApiOperation({ summary: 'Refresh asset price by assetId' })
   @ApiParam({ name: 'id', description: 'assetId', example: '1' })
-  @ApiResponse({ status: 200, description: '200 SUCCESS' })
+  @ApiResponse({ status: 200, description: 'Success' })
   @Get(':id/refresh-price')
   refreshPrice(@Param('id') id: string) {
     return this.assetsService.refreshPrice(+id);
@@ -125,7 +123,7 @@ export class AssetsController {
 
   @ApiOperation({ summary: 'Refresh asset price by ticker' })
   @ApiParam({ name: 'ticker', description: 'ticker', example: 'AAPL' })
-  @ApiResponse({ status: 200, description: '200 SUCCESS' })
+  @ApiResponse({ status: 200, description: 'Success' })
   @Get('ticker/:ticker/refresh-price')
   refreshPriceByTicker(@Param('ticker') ticker: string) {
     return this.assetsService.refreshPriceByTicker(ticker);
@@ -156,12 +154,12 @@ export class AssetsController {
   }
 
   @ApiOperation({ summary: 'Get history of an asset by Ticker' })
-  @ApiParam({ name: 'ticker', description: '股票代码', example: 'AAPL' })
-  @ApiQuery({ name: 'startDate', description: '开始日期', example: '2025-06-030', required: false })
-  @ApiQuery({ name: 'endDate', description: '结束日期', example: '2025-07-31', required: false })
-  @ApiQuery({ name: 'page', description: '页码', example: 1, required: false })
-  @ApiQuery({ name: 'limit', description: '每页数量', example: 30, required: false })
-  @ApiResponse({ status: 200, description: '历史记录列表' })
+  @ApiParam({ name: 'ticker', description: 'Ticker', example: 'AAPL' })
+  @ApiQuery({ name: 'startDate', description: 'Start Date', example: '2025-06-030', required: false })
+  @ApiQuery({ name: 'endDate', description: 'End Date', example: '2025-07-31', required: false })
+  @ApiQuery({ name: 'page', description: 'Page Number', example: 1, required: false })
+  @ApiQuery({ name: 'limit', description: 'Page Size', example: 30, required: false })
+  @ApiResponse({ status: 200, description: 'History List' })
   @Get('ticker/:ticker/history')
   getAssetHistoryByTicker(
     @Param('ticker') ticker: string,
@@ -179,26 +177,26 @@ export class AssetsController {
     return this.assetsService.getAssetHistoryByTicker(ticker, queryDto);
   }
 
-  @ApiOperation({ summary: '获取资产最新历史记录' })
-  @ApiParam({ name: 'id', description: '资产ID', example: '1' })
-  @ApiResponse({ status: 200, description: '最新历史记录' })
+  @ApiOperation({ summary: 'Get the lastest history rerod of an asset by assetId' })
+  @ApiParam({ name: 'id', description: 'assetId', example: '1' })
+  @ApiResponse({ status: 200, description: 'Latest history of asset with assetId' })
   @Get(':id/history/latest')
   getLatestAssetHistory(@Param('id') id: string) {
     return this.assetsService.getLatestAssetHistory(+id);
   }
 
-  @ApiOperation({ summary: '根据Ticker获取资产最新历史记录' })
-  @ApiParam({ name: 'ticker', description: '股票代码', example: 'AAPL' })
-  @ApiResponse({ status: 200, description: '最新历史记录' })
+  @ApiOperation({ summary: 'Get the lastest history rerod of an asset by Ticker' })
+  @ApiParam({ name: 'ticker', description: 'Ticker', example: 'AAPL' })
+  @ApiResponse({ status: 200, description: 'Latest history of asset with Ticker' })
   @Get('ticker/:ticker/history/latest')
   getLatestAssetHistoryByTicker(@Param('ticker') ticker: string) {
     return this.assetsService.getLatestAssetHistoryByTicker(ticker);
   }
 
-  @ApiOperation({ summary: '获取资产历史记录统计信息' })
-  @ApiParam({ name: 'id', description: '资产ID', example: '1' })
-  @ApiQuery({ name: 'days', description: '统计天数', example: 30, required: false })
-  @ApiResponse({ status: 200, description: '历史记录统计信息' })
+  @ApiOperation({ summary: 'Get the stats of history records of an asset by assetId' })
+  @ApiParam({ name: 'id', description: 'assetId', example: '1' })
+  @ApiQuery({ name: 'days', description: 'Days', example: 30, required: false })
+  @ApiResponse({ status: 200, description: 'Stats of history records of an asset with assetId (OLHM: Open, High, Low, Close)' })
   @Get(':id/history/stats')
   getAssetHistoryStats(
     @Param('id') id: string,

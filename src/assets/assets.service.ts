@@ -28,6 +28,7 @@ export interface AssetHistoryQueryDto {
 
 @Injectable()
 export class AssetsService {
+  
   private readonly logger = new Logger(AssetsService.name);
 
   constructor(
@@ -48,21 +49,22 @@ export class AssetsService {
   }
 
   /**
-   * 创建单个资产
+   * Create a new asset
    */
   async createAsset(createAssetDto: CreateAssetDto) {
     const { ticker, name, assetType, price } = createAssetDto;
 
-    // 验证ticker是否存在
+    // Validate ticker
     const isValid = await this.marketDataService.validateTicker(ticker);
     if (!isValid) {
       throw new BadRequestException(`Invalid ticker: ${ticker}`);
     }
 
-    // 获取市场数据
+    // Get market data
     const marketData = await this.marketDataService.getAssetData(ticker);
 
-    // 确定资产类型
+    // Determine asset type
+    // 目前没有用 所有的资产都是股票
     let finalAssetType = assetType || 'stock';
     if (ticker.includes('ETF') || ticker.includes('etf')) {
       finalAssetType = 'etf';
@@ -70,7 +72,6 @@ export class AssetsService {
       finalAssetType = 'option';
     }
 
-    // 创建资产记录
     const asset = await this.prisma.asset.create({
       data: {
         ticker_symbol: ticker,
@@ -115,7 +116,10 @@ export class AssetsService {
   /**
    * 获取所有资产
    */
-  async findBatch(page: number = 1, limit: number = 30) {
+  async findBatch(page: number = 1, limit: number = 10) {
+    page = page < 1 ? 1 : page;
+    limit = limit < 1 ? 10 : limit;
+    limit = limit > 200 ? 200 : limit;
     return await this.prisma.asset.findMany({
       orderBy: { id: 'asc' },
       skip: (page - 1) * limit,
@@ -154,7 +158,7 @@ export class AssetsService {
   }
 
   /**
-   * 更新资产
+   * Update Assest
    */
   async update(id: number, updateAssetDto: UpdateAssetDto) {
     const asset = await this.findOne(id);
@@ -173,7 +177,7 @@ export class AssetsService {
   }
 
   /**
-   * 删除资产
+   * Delete Assest
    */
   async remove(id: number) {
     const asset = await this.findOne(id);
@@ -331,11 +335,10 @@ export class AssetsService {
    * @returns 更新结果
    */
   async updateAssetPriceWithHistory(assetId: number, ticker: string) {
-    // 获取详细的市场数据
+    // 获取实时的详细市场数据
     const detailedMarketData = await this.marketDataService.getDetailedAssetData(ticker);
     const now = new Date();
 
-    // 使用事务同时更新Asset表和Asset_History表
     const result = await this.prisma.$transaction(async (prisma) => {
       // 更新资产表
       const updatedAsset = await prisma.asset.update({
